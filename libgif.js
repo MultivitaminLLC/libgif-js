@@ -408,7 +408,7 @@
                     throw new Error('Unknown block: 0x' + block.sentinel.toString(16)); // TODO: Pad this with a 0.
             }
 
-            if (block.type !== 'eof') setTimeout(parseBlock, 0);
+            if (block.type !== 'eof') setTimeout(parseBlock, 10);
         };
 
         var parse = function () {
@@ -430,8 +430,6 @@
             c_w: null,
             c_h: null
         };
-        for (var i in opts ) { options[i] = opts[i] }
-        if (options.vp_w && options.vp_h) options.is_vp = true;
 
         var stream;
         var hdr;
@@ -455,18 +453,29 @@
         var frames = [];
         var frameOffsets = []; // elements have .x and .y properties
 
+        var onEndListener, loopDelay, overrideLoopMode, drawWhileLoading, showProgressBar, progressBarHeight,
+            progressBarBackgroundColor, progressBarForegroundColor
+
+        var parseOptions = function (opts) {
+            for (var i in opts ) { options[i] = opts[i] }
+
+            onEndListener = (options.hasOwnProperty('on_end') ? options.on_end : null);
+            loopDelay = (options.hasOwnProperty('loop_delay') ? options.loop_delay : 0);
+            overrideLoopMode = (options.hasOwnProperty('loop_mode') ? options.loop_mode : 'auto');
+            drawWhileLoading = (options.hasOwnProperty('draw_while_loading') ? options.draw_while_loading : true);
+            showProgressBar = drawWhileLoading ? (options.hasOwnProperty('show_progress_bar') ? options.show_progress_bar : true) : false;
+            progressBarHeight = (options.hasOwnProperty('progressbar_height') ? options.progressbar_height : 25);
+            progressBarBackgroundColor = (options.hasOwnProperty('progressbar_background_color') ? options.progressbar_background_color : 'rgba(255,255,255,0.4)');
+            progressBarForegroundColor = (options.hasOwnProperty('progressbar_foreground_color') ? options.progressbar_foreground_color : 'rgba(255,0,22,.8)');
+        }
+
+        parseOptions(opts)
+
         var gif = options.gif;
         if (typeof options.auto_play == 'undefined')
             options.auto_play = (!gif.getAttribute('rel:auto_play') || gif.getAttribute('rel:auto_play') == '1');
 
-        var onEndListener = (options.hasOwnProperty('on_end') ? options.on_end : null);
-        var loopDelay = (options.hasOwnProperty('loop_delay') ? options.loop_delay : 0);
-        var overrideLoopMode = (options.hasOwnProperty('loop_mode') ? options.loop_mode : 'auto');
-        var drawWhileLoading = (options.hasOwnProperty('draw_while_loading') ? options.draw_while_loading : true);
-        var showProgressBar = drawWhileLoading ? (options.hasOwnProperty('show_progress_bar') ? options.show_progress_bar : true) : false;
-        var progressBarHeight = (options.hasOwnProperty('progressbar_height') ? options.progressbar_height : 25);
-        var progressBarBackgroundColor = (options.hasOwnProperty('progressbar_background_color') ? options.progressbar_background_color : 'rgba(255,255,255,0.4)');
-        var progressBarForegroundColor = (options.hasOwnProperty('progressbar_foreground_color') ? options.progressbar_foreground_color : 'rgba(255,0,22,.8)');
+        if (options.vp_w && options.vp_h) options.is_vp = true;
 
         var clear = function () {
             transparency = null;
@@ -497,11 +506,21 @@
             canvas.height = h * get_canvas_scale();
             toolbar.style.minWidth = ( w * get_canvas_scale() ) + 'px';
 
-            tmpCanvas.width = w;
-            tmpCanvas.height = h;
-            tmpCanvas.style.width = w + 'px';
-            tmpCanvas.style.height = h + 'px';
-            tmpCanvas.getContext('2d').setTransform(1, 0, 0, 1, 0, 0);
+            setHdrSizes(w, h)
+        };
+
+        var setHdrSizes = function (w, h) {
+            bufferCanvas.width = w;
+            bufferCanvas.height = h;
+            bufferCanvas.style.width = w + 'px';
+            bufferCanvas.style.height = h + 'px';
+            bufferCanvas.getContext('2d').setTransform(1, 0, 0, 1, 0, 0);
+
+            stepCanvas.width = w;
+            stepCanvas.height = h;
+            stepCanvas.style.width = w + 'px';
+            stepCanvas.style.height = h + 'px';
+            stepCanvas.getContext('2d').setTransform(1, 0, 0, 1, 0, 0);
         };
 
         var setFrameOffset = function(frame, offset) {
@@ -587,7 +606,7 @@
 
         var doHdr = function (_hdr) {
             hdr = _hdr;
-            setSizes(hdr.width, hdr.height)
+            setHdrSizes(hdr.width, hdr.height)
         };
 
         var doGCE = function (gce) {
@@ -602,14 +621,14 @@
         var pushFrame = function () {
             if (!frame) return;
             frames.push({
-                            data: frame.getImageData(0, 0, hdr.width, hdr.height),
-                            delay: delay
-                        });
-            frameOffsets.push({ x: 0, y: 0 });
+                data: frame.getImageData(0, 0, hdr.width, hdr.height),
+                delay: delay
+            });
+            frameOffsets.push({x: 0, y: 0});
         };
 
         var doImg = function (img) {
-            if (!frame) frame = tmpCanvas.getContext('2d');
+            if (!frame) frame = bufferCanvas.getContext('2d');
 
             var currIdx = frames.length;
 
@@ -681,8 +700,8 @@
             // We could use the on-page canvas directly, except that we draw a progress
             // bar for each image chunk (not just the final image).
             if (drawWhileLoading) {
-                ctx.drawImage(tmpCanvas, 0, 0);
-                drawWhileLoading = options.auto_play;
+                ctx.drawImage(bufferCanvas, 0, 0, hdr.width, hdr.height, 0, 0, options.c_w, options.c_h);
+                //drawWhileLoading = options.auto_play;
             }
 
             lastImg = img;
@@ -737,19 +756,19 @@
                     var nextFrameNo = getNextFrameNo();
                     if (nextFrameNo === 0) {
                         delay += loopDelay;
-                        setTimeout(completeLoop, delay);
+                        setTimeout(completeLoop, 10);
                     } else {
                         setTimeout(doStep, delay);
                     }
                 };
 
                 return function () {
-                    if (!stepping) setTimeout(doStep, 0);
+                    if (!stepping) setTimeout(doStep, 10);
                 };
             }());
 
             var putFrame = function () {
-                var offset;
+                var offset, currentData;
                 i = parseInt(i, 10);
 
                 if (i > frames.length - 1){
@@ -761,10 +780,11 @@
                 }
 
                 offset = frameOffsets[i];
+                currentData = frames[i].data;
 
-                tmpCanvas.getContext("2d").putImageData(frames[i].data, offset.x, offset.y);
+                stepCanvas.getContext("2d").putImageData(currentData, offset.x, offset.y);
                 ctx.globalCompositeOperation = "copy";
-                ctx.drawImage(tmpCanvas, 0, 0);
+                ctx.drawImage(stepCanvas, 0, 0, currentData.width, currentData.height, 0, 0, options.c_w, options.c_h);
             };
 
             var play = function () {
@@ -775,7 +795,6 @@
             var pause = function () {
                 playing = false;
             };
-
 
             return {
                 init: function () {
@@ -860,7 +879,8 @@
             ctx = canvas.getContext('2d');
             toolbar = document.createElement('div');
 
-            tmpCanvas = document.createElement('canvas');
+            stepCanvas = document.createElement('canvas');
+            bufferCanvas = document.createElement('canvas');
 
             div.width = canvas.width = gif.width;
             div.height = canvas.height = gif.height;
@@ -889,7 +909,7 @@
             return scale;
         }
 
-        var canvas, ctx, toolbar, tmpCanvas;
+        var canvas, ctx, toolbar, bufferCanvas, stepCanvas;
         var initialized = false;
         var load_callback = false;
 
@@ -924,6 +944,7 @@
             get_auto_play    : function() { return options.auto_play },
             get_length       : function() { return player.length() },
             get_current_frame: function() { return player.current_frame() },
+            set_options      : function(opts) { parseOptions(opts) },
             load_url: function(src,callback){
                 if (!load_setup(callback)) return;
 
@@ -986,5 +1007,3 @@
 
     return SuperGif;
 }));
-
-
