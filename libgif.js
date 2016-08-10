@@ -389,6 +389,9 @@
 
         var parseBlock = function () {
             var block = {};
+
+            if (!handler.playing || handler.parsed) return
+
             block.sentinel = st.readByte();
 
             switch (String.fromCharCode(block.sentinel)) { // For ease of matching
@@ -402,6 +405,7 @@
                     break;
                 case ';':
                     block.type = 'eof';
+                    handler.parsed = true
                     handler.eof && handler.eof(block);
                     break;
                 default:
@@ -414,6 +418,10 @@
         var parse = function () {
             parseHeader();
             setTimeout(parseBlock, 0);
+
+            handler.tryParse = function () {
+                parseBlock()
+            }
         };
 
         parse();
@@ -445,7 +453,7 @@
         var frame = null;
         var lastImg = null;
 
-        var playing = true;
+        //var playing = true;
         var forward = true;
 
         var ctx_scaled = false;
@@ -496,15 +504,15 @@
             }
         };
 
-        var doText = function (text) {
-            toolbar.innerHTML = text; // innerText? Escaping? Whatever.
-            toolbar.style.visibility = 'visible';
-        };
+        //var doText = function (text) {
+        //    toolbar.innerHTML = text; // innerText? Escaping? Whatever.
+        //    toolbar.style.visibility = 'visible';
+        //};
 
         var setSizes = function(w, h) {
             canvas.width = w * get_canvas_scale();
             canvas.height = h * get_canvas_scale();
-            toolbar.style.minWidth = ( w * get_canvas_scale() ) + 'px';
+            //toolbar.style.minWidth = ( w * get_canvas_scale() ) + 'px';
 
             setHdrSizes(w, h)
         };
@@ -568,10 +576,10 @@
                     }
                 }
                 else {
-                    top = (canvas.height - height) / (ctx_scaled ? get_canvas_scale() : 1);
+                    top = 0;//(canvas.height - height) / (ctx_scaled ? get_canvas_scale() : 1);
                     mid = ((pos / length) * canvas.width) / (ctx_scaled ? get_canvas_scale() : 1);
                     width = canvas.width / (ctx_scaled ? get_canvas_scale() : 1 );
-                    height /= ctx_scaled ? get_canvas_scale() : 1;
+                    height = 4 ///= ctx_scaled ? get_canvas_scale() : 1;
                 }
 
                 ctx.fillStyle = progressBarBackgroundColor;
@@ -702,132 +710,11 @@
             if (drawWhileLoading) {
                 ctx.drawImage(bufferCanvas, 0, 0, hdr.width, hdr.height, 0, 0, options.c_w, options.c_h);
                 //drawWhileLoading = options.auto_play;
+            } else if (handler.playing && frames.length == 1) {
+                player.step()
             }
 
             lastImg = img;
-        };
-
-        var player = (function () {
-            var i = -1;
-            var iterationCount = 0;
-
-            var showingInfo = false;
-            var pinned = false;
-
-            /**
-             * Gets the index of the frame "up next".
-             * @returns {number}
-             */
-            var getNextFrameNo = function () {
-                var delta = (forward ? 1 : -1);
-                return (i + delta + frames.length) % frames.length;
-            };
-
-            var stepFrame = function (amount) { // XXX: Name is confusing.
-                i = i + amount;
-
-                putFrame();
-            };
-
-            var step = (function () {
-                var stepping = false;
-
-                var completeLoop = function () {
-                    if (onEndListener !== null)
-                        onEndListener(gif);
-                    iterationCount++;
-
-                    if (overrideLoopMode !== false || iterationCount < 0) {
-                        doStep();
-                    } else {
-                        stepping = false;
-                        playing = false;
-                    }
-                };
-
-                var doStep = function () {
-                    stepping = playing;
-                    if (!stepping) return;
-
-                    stepFrame(1);
-                    var delay = frames[i].delay * 10;
-                    if (!delay) delay = 100; // FIXME: Should this even default at all? What should it be?
-
-                    var nextFrameNo = getNextFrameNo();
-                    if (nextFrameNo === 0) {
-                        delay += loopDelay;
-                        setTimeout(completeLoop, 10);
-                    } else {
-                        setTimeout(doStep, delay);
-                    }
-                };
-
-                return function () {
-                    if (!stepping) setTimeout(doStep, 10);
-                };
-            }());
-
-            var putFrame = function () {
-                var offset, currentData;
-                i = parseInt(i, 10);
-
-                if (i > frames.length - 1){
-                    i = 0;
-                }
-
-                if (i < 0){
-                    i = 0;
-                }
-
-                offset = frameOffsets[i];
-                currentData = frames[i].data;
-
-                stepCanvas.getContext("2d").putImageData(currentData, offset.x, offset.y);
-                ctx.globalCompositeOperation = "copy";
-                ctx.drawImage(stepCanvas, 0, 0, currentData.width, currentData.height, 0, 0, options.c_w, options.c_h);
-            };
-
-            var play = function () {
-                playing = true;
-                step();
-            };
-
-            var pause = function () {
-                playing = false;
-            };
-
-            return {
-                init: function () {
-                    if (loadError) return;
-
-                    if ( ! (options.c_w && options.c_h) ) {
-                        ctx.scale(get_canvas_scale(),get_canvas_scale());
-                    }
-
-                    if (options.auto_play) {
-                        step();
-                    }
-                    else {
-                        i = 0;
-                        putFrame();
-                    }
-                },
-                step: step,
-                play: play,
-                pause: pause,
-                playing: playing,
-                move_relative: stepFrame,
-                current_frame: function() { return i; },
-                length: function() { return frames.length },
-                move_to: function ( frame_idx ) {
-                    i = frame_idx;
-                    putFrame();
-                }
-            }
-        }());
-
-        var doDecodeProgress = function (draw) {
-            doShowProgress(stream.pos, stream.data.length, draw);
         };
 
         var doNothing = function () {};
@@ -867,8 +754,148 @@
                 if (load_callback) {
                     load_callback(gif);
                 }
+            },
 
+            parsed: false,
+            loaded: false,
+            playing: true,
+            tryParse: null
+        };
+
+        var player = (function () {
+            var i = -1;
+            var iterationCount = 0;
+
+            var showingInfo = false;
+            var pinned = false;
+
+            /**
+             * Gets the index of the frame "up next".
+             * @returns {number}
+             */
+            var getNextFrameNo = function () {
+                var delta = (forward ? 1 : -1);
+                return (i + delta + frames.length) % frames.length;
+            };
+
+            var stepFrame = function (amount) { // XXX: Name is confusing.
+                i = i + amount;
+
+                putFrame();
+            };
+
+            var step = (function () {
+                var stepping = false;
+
+                var completeLoop = function () {
+                    if (onEndListener !== null)
+                        onEndListener(gif);
+                    iterationCount++;
+
+                    if (overrideLoopMode !== false || iterationCount < 0) {
+                        doStep();
+                    } else {
+                        stepping = false;
+                        handler.playing = false;
+                    }
+                };
+
+                var doStep = function () {
+                    stepping = handler.playing;
+                    if (!stepping) return;
+
+                    stepFrame(1);
+                    var delay = frames[i].delay * 10;
+                    if (!delay) delay = 100; // FIXME: Should this even default at all? What should it be?
+
+                    var nextFrameNo = getNextFrameNo();
+                    if (nextFrameNo === 0) {
+                        delay += loopDelay;
+                        setTimeout(completeLoop, 10);
+                    } else {
+                        setTimeout(doStep, delay);
+                    }
+                };
+
+                return function () {
+                    if (!stepping) setTimeout(doStep, 10);
+                };
+            }());
+
+            var putFrame = function () {
+                var offset, currentData;
+                i = parseInt(i, 10);
+
+                if (!frames.length) return
+
+                if (i > frames.length - 1){
+                    i = 0;
+                }
+
+                if (i < 0){
+                    i = 0;
+                }
+
+                offset = frameOffsets[i];
+                currentData = frames[i].data;
+
+                stepCanvas.getContext("2d").putImageData(currentData, offset.x, offset.y);
+                ctx.globalCompositeOperation = "copy";
+                ctx.drawImage(stepCanvas, 0, 0, currentData.width, currentData.height, 0, 0, options.c_w, options.c_h);
+            };
+
+            var play = function () {
+                if (handler.playing) {
+                    return
+                }
+
+                handler.playing = true;
+
+                if (handler.loaded && handler.tryParse) {
+                    handler.tryParse()
+                }
+
+                if (frames.length) {
+                    step();
+                }
+            };
+
+            var pause = function () {
+                handler.playing = false;
+            };
+
+            return {
+                init: function () {
+                    if (loadError) return;
+
+                    if ( ! (options.c_w && options.c_h) ) {
+                        ctx.scale(get_canvas_scale(),get_canvas_scale());
+                    }
+
+                    if (options.auto_play) {
+                        step();
+                    }
+                    else {
+                        i = 0;
+                        putFrame();
+                    }
+                },
+                step: step,
+                play: play,
+                pause: pause,
+                playing: handler.playing,
+                move_relative: stepFrame,
+                current_frame: function() { return i; },
+                length: function() { return frames.length },
+                move_to: function ( frame_idx ) {
+                    i = frame_idx;
+                    putFrame();
+                }
             }
+        }());
+
+        var doDecodeProgress = function (draw) {
+            doShowProgress(stream.pos, stream.data.length, draw);
         };
 
         var init = function () {
@@ -877,19 +904,19 @@
             var div = document.createElement('div');
             canvas = document.createElement('canvas');
             ctx = canvas.getContext('2d');
-            toolbar = document.createElement('div');
+            //toolbar = document.createElement('div');
 
             stepCanvas = document.createElement('canvas');
             bufferCanvas = document.createElement('canvas');
 
             div.width = canvas.width = gif.width;
             div.height = canvas.height = gif.height;
-            toolbar.style.minWidth = gif.width + 'px';
+            //toolbar.style.minWidth = gif.width + 'px';
 
             div.className = 'jsgif';
-            toolbar.className = 'jsgif_toolbar';
+            //toolbar.className = 'jsgif_toolbar';
             div.appendChild(canvas);
-            div.appendChild(toolbar);
+            //div.appendChild(toolbar);
 
             parent.insertBefore(div, gif);
             parent.removeChild(gif);
@@ -909,7 +936,8 @@
             return scale;
         }
 
-        var canvas, ctx, toolbar, bufferCanvas, stepCanvas;
+        var canvas, ctx, bufferCanvas, stepCanvas;
+        //var toolbar
         var initialized = false;
         var load_callback = false;
 
@@ -937,7 +965,7 @@
             move_to: player.move_to,
 
             // getters for instance vars
-            get_playing      : function() { return playing },
+            get_playing      : function() { return handler.playing },
             get_canvas       : function() { return canvas },
             get_canvas_scale : function() { return get_canvas_scale() },
             get_loading      : function() { return loading },
@@ -982,6 +1010,9 @@
                     if (data.toString().indexOf("ArrayBuffer") > 0) {
                         data = new Uint8Array(data);
                     }
+
+                    handler.loaded = true
+                    showProgressBar = false
 
                     stream = new Stream(data);
                     setTimeout(doParse, 0);
