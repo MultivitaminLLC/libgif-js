@@ -579,7 +579,7 @@
                     top = 0;//(canvas.height - height) / (ctx_scaled ? get_canvas_scale() : 1);
                     mid = ((pos / length) * canvas.width) / (ctx_scaled ? get_canvas_scale() : 1);
                     width = canvas.width / (ctx_scaled ? get_canvas_scale() : 1 );
-                    height = 4 ///= ctx_scaled ? get_canvas_scale() : 1;
+                    height = 2 ///= ctx_scaled ? get_canvas_scale() : 1;
                 }
 
                 ctx.fillStyle = progressBarBackgroundColor;
