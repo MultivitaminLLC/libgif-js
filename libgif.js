@@ -726,7 +726,7 @@
         var withProgress = function (fn, draw) {
             return function (block) {
                 fn(block);
-                doDecodeProgress(draw);
+                //doDecodeProgress(draw);
             };
         };
 
@@ -751,9 +751,9 @@
                 }
                 player.init();
                 loading = false;
-                if (load_callback) {
-                    load_callback(gif);
-                }
+                //if (load_callback) {
+                //    load_callback(gif);
+                //}
             },
 
             parsed: false,
@@ -873,7 +873,15 @@
                     }
 
                     if (options.auto_play) {
-                        step();
+                        if (overrideLoopMode) {
+                            step();
+                        } else {
+                            handler.playing = false
+
+                            if (onEndListener !== null) {
+                                onEndListener(gif);
+                            }
+                        }
                     }
                     else {
                         i = 0;
@@ -1016,6 +1024,10 @@
 
                     stream = new Stream(data);
                     setTimeout(doParse, 0);
+
+                    if (load_callback) {
+                        load_callback()
+                    }
                 };
                 h.onprogress = function (e) {
                     if (e.lengthComputable) doShowProgress(e.loaded, e.total, true);
