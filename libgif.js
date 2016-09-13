@@ -412,7 +412,7 @@
                     throw new Error('Unknown block: 0x' + block.sentinel.toString(16)); // TODO: Pad this with a 0.
             }
 
-            if (block.type !== 'eof') setTimeout(parseBlock, 10);
+            if (block.type !== 'eof') setTimeout(parseBlock, 50);
         };
 
         var parse = function () {
@@ -708,6 +708,7 @@
             // We could use the on-page canvas directly, except that we draw a progress
             // bar for each image chunk (not just the final image).
             if (drawWhileLoading) {
+				ctx.clearRect(0, 0, options.c_w, options.c_h)
                 ctx.drawImage(bufferCanvas, 0, 0, hdr.width, hdr.height, 0, 0, options.c_w, options.c_h);
                 //drawWhileLoading = options.auto_play;
             } else if (handler.playing && frames.length == 1) {
@@ -807,6 +808,7 @@
                     stepFrame(1);
                     var delay = frames[i].delay * 10;
                     if (!delay) delay = 100; // FIXME: Should this even default at all? What should it be?
+                    if (delay<100) delay=100;
 
                     var nextFrameNo = getNextFrameNo();
                     if (nextFrameNo === 0) {
