@@ -412,7 +412,7 @@
                     throw new Error('Unknown block: 0x' + block.sentinel.toString(16)); // TODO: Pad this with a 0.
             }
 
-            if (block.type !== 'eof') setTimeout(parseBlock, 50);
+            if (block.type !== 'eof') setTimeout(parseBlock, block.delayTime);
         };
 
         var parse = function () {
@@ -808,7 +808,6 @@
                     stepFrame(1);
                     var delay = frames[i].delay * 10;
                     if (!delay) delay = 100; // FIXME: Should this even default at all? What should it be?
-                    if (delay<100) delay=100;
 
                     var nextFrameNo = getNextFrameNo();
                     if (nextFrameNo === 0) {
