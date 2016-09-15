@@ -1003,10 +1003,10 @@
                     h.setRequestHeader('Accept-Charset', 'x-user-defined');
                 }
 
-                h.onloadstart = function() {
+                //h.onloadstart = function() {
                     // Wait until connection is opened to replace the gif element with a canvas to avoid a blank img
-                    if (!initialized) init();
-                };
+                    //if (!initialized) init();
+                //};
                 h.onload = function(e) {
                     if (this.status != 200) {
                         doLoadError('xhr - response');
@@ -1035,6 +1035,8 @@
                 };
                 h.onerror = function() { doLoadError('xhr'); };
                 h.send();
+
+                if (!initialized) init();
             },
             load: function (callback) {
                 this.load_url(gif.getAttribute('rel:animated_src') || gif.src,callback);
