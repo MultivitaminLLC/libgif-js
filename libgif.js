@@ -982,7 +982,7 @@
             get_length       : function() { return player.length() },
             get_current_frame: function() { return player.current_frame() },
             set_options      : function(opts) { parseOptions(opts) },
-            load_url: function(src,callback){
+            load_url: function(src,callback, error){
                 if (!load_setup(callback)) return;
 
                 var h = new XMLHttpRequest();
@@ -1009,7 +1009,8 @@
                 //};
                 h.onload = function(e) {
                     if (this.status != 200) {
-                        doLoadError('xhr - response');
+                        //doLoadError('xhr - response');
+                        if (error) error()
                     }
                     // emulating response field for IE9
                     if (!('response' in this)) {
@@ -1033,13 +1034,16 @@
                 h.onprogress = function (e) {
                     if (e.lengthComputable) doShowProgress(e.loaded, e.total, true);
                 };
-                h.onerror = function() { doLoadError('xhr'); };
+                h.onerror = function() {
+                    //doLoadError('xhr');
+                    if (error) error()
+                };
                 h.send();
 
                 if (!initialized) init();
             },
-            load: function (callback) {
-                this.load_url(gif.getAttribute('rel:animated_src') || gif.src,callback);
+            load: function (callback, error) {
+                this.load_url(gif.getAttribute('rel:animated_src') || gif.src,callback, error);
             },
             load_raw: function(arr, callback) {
                 if (!load_setup(callback)) return;
