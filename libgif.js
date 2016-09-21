@@ -412,7 +412,7 @@
                     throw new Error('Unknown block: 0x' + block.sentinel.toString(16)); // TODO: Pad this with a 0.
             }
 
-            if (block.type !== 'eof') setTimeout(parseBlock, block.delayTime);
+            if (block.type !== 'eof') setTimeout(parseBlock, block.delayTime * 10);
         };
 
         var parse = function () {
@@ -480,8 +480,8 @@
         parseOptions(opts)
 
         var gif = options.gif;
-        if (typeof options.auto_play == 'undefined')
-            options.auto_play = (!gif.getAttribute('rel:auto_play') || gif.getAttribute('rel:auto_play') == '1');
+        //if (typeof options.auto_play == 'undefined')
+          //  options.auto_play = (!gif.getAttribute('rel:auto_play') || gif.getAttribute('rel:auto_play') == '1');
 
         if (options.vp_w && options.vp_h) options.is_vp = true;
 
@@ -1043,7 +1043,8 @@
                 if (!initialized) init();
             },
             load: function (callback, error) {
-                this.load_url(gif.getAttribute('rel:animated_src') || gif.src,callback, error);
+                //this.load_url(gif.getAttribute('rel:animated_src') || gif.src,callback, error);
+                this.load_url(gif.src,callback, error);
             },
             load_raw: function(arr, callback) {
                 if (!load_setup(callback)) return;
