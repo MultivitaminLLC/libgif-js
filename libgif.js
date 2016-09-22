@@ -831,7 +831,7 @@
                 var offset, currentData;
                 i = parseInt(i, 10);
 
-                //if (!frames.length) return
+                if (!frames.length) return
 
                 if (i > frames.length - 1){
                     i = 0;
