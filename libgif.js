@@ -390,7 +390,7 @@
         var parseBlock = function () {
             var block = {};
 
-            if (!handler.playing || handler.parsed) return
+            //if (!handler.playing || handler.parsed) return
 
             block.sentinel = st.readByte();
 
@@ -405,23 +405,24 @@
                     break;
                 case ';':
                     block.type = 'eof';
-                    handler.parsed = true
+                    //handler.parsed = true
                     handler.eof && handler.eof(block);
                     break;
                 default:
                     throw new Error('Unknown block: 0x' + block.sentinel.toString(16)); // TODO: Pad this with a 0.
             }
 
-            if (block.type !== 'eof') setTimeout(parseBlock, block.delayTime * 10);
+            //if (block.type !== 'eof') setTimeout(parseBlock, block.delayTime * 10);
+            if (block.type !== 'eof') setTimeout(parseBlock, 0);
         };
 
         var parse = function () {
             parseHeader();
             setTimeout(parseBlock, 0);
 
-            handler.tryParse = function () {
-                parseBlock()
-            }
+            //handler.tryParse = function () {
+            //    parseBlock()
+            //}
         };
 
         parse();
@@ -471,7 +472,8 @@
             loopDelay = (options.hasOwnProperty('loop_delay') ? options.loop_delay : 0);
             overrideLoopMode = (options.hasOwnProperty('loop_mode') ? options.loop_mode : 'auto');
             drawWhileLoading = (options.hasOwnProperty('draw_while_loading') ? options.draw_while_loading : true);
-            showProgressBar = drawWhileLoading ? (options.hasOwnProperty('show_progress_bar') ? options.show_progress_bar : true) : false;
+            //showProgressBar = drawWhileLoading ? (options.hasOwnProperty('show_progress_bar') ? options.show_progress_bar : true) : false;
+            showProgressBar = options.hasOwnProperty('show_progress_bar') ? options.show_progress_bar : true;
             progressBarHeight = (options.hasOwnProperty('progressbar_height') ? options.progressbar_height : 25);
             progressBarBackgroundColor = (options.hasOwnProperty('progressbar_background_color') ? options.progressbar_background_color : 'rgba(255,255,255,0.4)');
             progressBarForegroundColor = (options.hasOwnProperty('progressbar_foreground_color') ? options.progressbar_foreground_color : 'rgba(255,0,22,.8)');
@@ -711,9 +713,11 @@
 				ctx.clearRect(0, 0, options.c_w, options.c_h)
                 ctx.drawImage(bufferCanvas, 0, 0, hdr.width, hdr.height, 0, 0, options.c_w, options.c_h);
                 //drawWhileLoading = options.auto_play;
-            } else if (handler.playing && frames.length == 1) {
-                player.step()
             }
+
+            //else if (handler.playing && frames.length == 1) {
+            //    player.step()
+            //}
 
             lastImg = img;
         };
@@ -727,7 +731,7 @@
         var withProgress = function (fn, draw) {
             return function (block) {
                 fn(block);
-                //doDecodeProgress(draw);
+                doDecodeProgress(draw);
             };
         };
 
@@ -752,9 +756,9 @@
                 }
                 player.init();
                 loading = false;
-                //if (load_callback) {
-                //    load_callback(gif);
-                //}
+                if (load_callback) {
+                    load_callback(gif);
+                }
             },
 
             parsed: false,
@@ -812,14 +816,14 @@
                     var nextFrameNo = getNextFrameNo();
                     if (nextFrameNo === 0) {
                         delay += loopDelay;
-                        setTimeout(completeLoop, 10);
+                        setTimeout(completeLoop, delay);
                     } else {
                         setTimeout(doStep, delay);
                     }
                 };
 
                 return function () {
-                    if (!stepping) setTimeout(doStep, 10);
+                    if (!stepping) setTimeout(doStep, 0);
                 };
             }());
 
@@ -827,7 +831,7 @@
                 var offset, currentData;
                 i = parseInt(i, 10);
 
-                if (!frames.length) return
+                //if (!frames.length) return
 
                 if (i > frames.length - 1){
                     i = 0;
@@ -846,19 +850,19 @@
             };
 
             var play = function () {
-                if (handler.playing) {
-                    return
-                }
+                //if (handler.playing) {
+                //    return
+                //}
 
                 handler.playing = true;
 
-                if (handler.loaded && handler.tryParse) {
-                    handler.tryParse()
-                }
+                //if (handler.loaded && handler.tryParse) {
+                //    handler.tryParse()
+                //}
 
-                if (frames.length) {
+                //if (frames.length) {
                     step();
-                }
+                //}
             };
 
             var pause = function () {
@@ -1022,14 +1026,14 @@
                     }
 
                     handler.loaded = true
-                    showProgressBar = false
+                    //showProgressBar = false
 
                     stream = new Stream(data);
                     setTimeout(doParse, 0);
 
-                    if (load_callback) {
-                        load_callback()
-                    }
+                    //if (load_callback) {
+                    //    load_callback()
+                    //}
                 };
                 h.onprogress = function (e) {
                     if (e.lengthComputable) doShowProgress(e.loaded, e.total, true);
